@@ -6,6 +6,9 @@ import "forge-std/console2.sol";
 
     error ErrorCustomized();
 contract Demo {
+    event Event1(address indexed from, address indexed to, uint amount);
+    event Event2(address indexed from, address indexed to, uint indexed amount);
+
     function Revert(uint flag) pure external {
         require(flag > 0, "require revert msg");
         if (flag == 1) {
@@ -16,16 +19,38 @@ contract Demo {
             revert("revert msg");
         }
     }
+
+    function EmitEvents(address demoOtherAddr) external {
+        emit Event1(address(1), address(1), 1);
+        // emit events from other contract
+        DemoOther(demoOtherAddr).EmitEvent();
+        emit Event2(address(2), address(2), 2);
+    }
 }
 
-contract CheatcodeEnvironment is Test {
+contract DemoOther {
+    event Event3(address indexed from, address to, uint amount);
+
+    function EmitEvent() external {
+        emit Event3(address(3), address(3), 3);
+    }
+
+}
+
+contract CheatcodeAssertion is Test {
+    Demo demo;
+    DemoOther demoOther;
+
+    function setup() external {
+        demo = new Demo();
+        demoOther = new DemoOther();
+    }
 
     function test_ExpectEmit() external {
 
     }
 
     function test_ExpectRevert() external {
-        Demo demo = new Demo();
         // check require revert msg
         vm.expectRevert("require revert msg");
         demo.Revert(0);
