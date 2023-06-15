@@ -140,7 +140,7 @@ contract CheatcodeAssertion is Test {
         // 对于多个events：如果不按照抛出顺序抛出期望的events及参数，测试用例会fail
         vm.expectEmit(address(demo));
         emit Event2(address(2), address(2), 2);
-        // 期待Event3与Event2的顺序与被测试函数抛出events顺序不一致
+        // 期待的Event3和Event2的顺序与被测试函数抛出events顺序不一致
         vm.expectEmit(address(demoOther));
         emit Event3(address(3), address(3), 3, "signature");
 
