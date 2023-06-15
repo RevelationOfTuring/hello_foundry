@@ -54,7 +54,7 @@ contract Cheatcode is Test {
     function test_Etch() external {
         // 零地址的codehash和code都没有值
         assertEq(address(0).codehash, bytes32(uint(0)));
-        assertEq(address(0).code, bytes(""));
+        assertEq(address(0).code, "");
 
         // 设置目标地址下的合约bytecode(设置成Demo的runtime code)
         vm.etch(address(0), type(Demo).runtimeCode);
@@ -131,7 +131,7 @@ contract Cheatcode is Test {
         vm.setNonce(address(0), 1024);
         assertEq(vm.getNonce(address(0)), 1024);
         // 对于同一个地址，只能set同当前相等或者更大的nonce
-        vm.expectRevert(bytes("New nonce (1023) must be strictly equal to or higher than the account's current nonce (1024)."));
+        vm.expectRevert("New nonce (1023) must be strictly equal to or higher than the account's current nonce (1024).");
         vm.setNonce(address(0), 1024 - 1);
 
         // 对于同一个地址，如果想随意设置nonce，请使用vm.setNonceUnsafe()
