@@ -16,40 +16,9 @@ contract Demo {
         msgSender = msg.sender;
         txOrigin = tx.origin;
     }
-
-    function Revert(uint flag) pure external {
-        require(flag > 0, "require revert msg");
-        if (flag == 1) {
-            revert();
-        } else if (flag == 2) {
-            revert ErrorCustomized();
-        } else {
-            revert("revert msg");
-        }
-    }
 }
 
-contract Cheatcode is Test {
-
-    function test_ExpectRevert() external {
-        Demo demo = new Demo();
-        // check require revert msg
-        vm.expectRevert("require revert msg");
-        demo.Revert(0);
-
-        // check revert
-        vm.expectRevert();
-        demo.Revert(1);
-
-        // check revert with error
-        vm.expectRevert(ErrorCustomized.selector);
-        demo.Revert(2);
-
-        // check revert with msg
-        vm.expectRevert("revert msg");
-        demo.Revert(3);
-
-    }
+contract CheatcodeEnvironment is Test {
 
     function test_Etch() external {
         // 零地址的codehash和code都没有值
@@ -66,7 +35,7 @@ contract Cheatcode is Test {
 
         // 零地址的codehash和code此时已经有值
         assertNotEq(address(0).codehash, bytes32(uint(0)));
-        assertNotEq0(address(0).code, bytes(""));
+        assertNotEq0(address(0).code, "");
     }
 
     function test_Deal() external {
