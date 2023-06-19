@@ -9,16 +9,55 @@ contract Demo {
     uint public varSlot0 = 1;
     // private
     uint  varSlot1 = 2;
-    address public msgSender;
+    address public msgSender = address(1024);
     address public txOrigin;
 
     function testPrank() external {
         msgSender = msg.sender;
         txOrigin = tx.origin;
     }
+
+    function setVarSlot1(uint value) external {
+        varSlot1 = value;
+    }
 }
 
 contract CheatcodeEnvironment is Test {
+    function test_RecordAndAccesses() external {
+        // 该cheatcode是用于告知vm开始记录一切对storage的读和写，具体对读写的操作可使用 vm.accesses
+        Demo demo = new Demo();
+        // 开始记录对某合约的storage的全部读写操作
+        vm.record();
+        // 执行外部调用
+        // 读slot2
+        demo.msgSender();
+        // 读slot0
+        demo.varSlot0();
+        (bytes32[] memory reads,bytes32[] memory writes) = vm.accesses(address(demo));
+
+        // 有两条读slot
+        assertEq(reads.length, 2);
+        // 没有写slot
+        assertEq(writes.length, 0);
+        // 第一条reads[0]存的值是bytes32的2，即表示对slot2的读
+        assertEq(uint(reads[0]), 2);
+        // 第二条reads[1]存的值是bytes32的0，即表示对slot0的读
+        assertEq(uint(reads[1]), 0);
+
+        // 测试一下写slot1
+        vm.record();
+        demo.setVarSlot1(1024);
+        (reads, writes) = vm.accesses(address(demo));
+        // 有1条读slot
+        assertEq(reads.length, 1);
+        // 有1条写slot
+        assertEq(writes.length, 1);
+        // 注意：每一条写slot，都会附带一条额外的读slot
+        // 即：写slot X，会额外伴随一个读slot X
+        assertEq(uint(reads[0]), 1);
+        assertEq(uint(writes[0]), 1);
+    }
+
 
     function test_ReadCallers() external {
         // 获取当前视图中的CallerMode, msg.sender和tx.origin
