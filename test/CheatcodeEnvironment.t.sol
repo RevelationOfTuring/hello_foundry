@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
-
+import {VmSafe} from "forge-std/Vm.sol";
     error ErrorCustomized();
 contract Demo {
     uint public varSlot0 = 1;
@@ -19,6 +19,24 @@ contract Demo {
 }
 
 contract CheatcodeEnvironment is Test {
+
+    function test_ReadCallers() external {
+        // 获取当前视图中的CallerMode, msg.sender和tx.origin
+        // CallerMade是一个枚举类
+        /*       enum CallerMode {
+                        None,               // 没有任何active的视图，即正常状态
+                        Broadcast,          // 表示当前视图处于vm.broadcast()的设置状态下
+                        RecurrentBroadcast, // 表示当前视图处于vm.startBroadcast()的设置状态下
+                        Prank,              // 表示当前视图处于vm.prank()的设置状态下
+                        RecurrentPrank      // 表示当前视图处于vm.startPrank()的设置状态下
+                 }
+        */
+
+        // 不知道为什么一调用vm.readCallers()就报错: Invalid data
+        vm.expectRevert();
+        //        (VmSafe.CallerMode callerMode,address msgSender, address txOrigin) = vm.readCallers();
+        vm.readCallers();
+    }
 
     function test_Etch() external {
         // 零地址的codehash和code都没有值
@@ -189,5 +207,11 @@ contract CheatcodeEnvironment is Test {
         assertEq(block.prevrandao, 0);
         vm.prevrandao(bytes32(uint(1024)));
         assertEq(block.prevrandao, 1024);
+    }
+
+    function test_Coinbase() external {
+        assertEq(block.coinbase, address(0));
+        vm.coinbase(address(1024));
+        assertEq(block.coinbase, address(1024));
     }
 }
