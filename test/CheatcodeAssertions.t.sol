@@ -116,7 +116,8 @@ contract CheatcodeAssertion is Test {
         demo.emitEvents(address(demoOther));
     }
 
-    function test_ExpectCall_CallTheSameCheatcodeTwice() external {
+    function test_ExpectCall_CallTheSameCheatcodeTwice_1() external {
+        // 情况一：相同Cheatcode(目标地址和calldata都一样)：带count -> 带count的两次调用，会revert
         vm.expectCall(
             address(demo),
             abi.encodeCall(demo.makeCall, (1, address(1))),
@@ -127,14 +128,71 @@ contract CheatcodeAssertion is Test {
         demo.makeCall(1, address(1));
         demo.makeCall(1, address(1));
 
-
         vm.expectRevert("Counted expected calls can only bet set once.");
-        // 再一次调用完全相同的Cheatcode(目标地址和calldata都一样)，revert
+        // 再一次调用（带count）完全相同的Cheatcode)，revert
         vm.expectCall(
             address(demo),
             abi.encodeCall(demo.makeCall, (1, address(1))),
             3
         );
+    }
+
+    function test_ExpectCall_CallTheSameCheatcodeTwice_2() external {
+        // 情况二：相同Cheatcode(目标地址和calldata都一样)：带count -> 不带count的两次调用，会revert
+        vm.expectCall(
+            address(demo),
+            abi.encodeCall(demo.makeCall, (1, address(1))),
+            2
+        );
+
+        // 调用了2次
+        demo.makeCall(1, address(1));
+        demo.makeCall(1, address(1));
+
+        // 再一次调用（不带count）完全相同的Cheatcode)，revert
+        vm.expectRevert("Cannot overwrite a counted expectCall with a non-counted expectCall.");
+        vm.expectCall(
+            address(demo),
+            abi.encodeCall(demo.makeCall, (1, address(1)))
+        );
+
+        demo.makeCall(1, address(1));
+    }
+
+    function test_ExpectCall_CallTheSameCheatcodeTwice_3() external {
+        // 情况三：相同Cheatcode(目标地址和calldata都一样)：不带count -> 带count的两次调用，会revert
+        vm.expectCall(
+            address(demo),
+            abi.encodeCall(demo.makeCall, (1, address(1)))
+        );
+
+        demo.makeCall(1, address(1));
+
+        // 再一次调用（带count）完全相同的Cheatcode)，revert
+        vm.expectRevert("Counted expected calls can only bet set once.");
+        vm.expectCall(
+            address(demo),
+            abi.encodeCall(demo.makeCall, (1, address(1))),
+            2
+        );
+    }
+
+    function test_ExpectCall_CallTheSameCheatcodeTwice_4() external {
+        // 情况三：相同Cheatcode(目标地址和calldata都一样)：不带count -> 不带count的两次调用，不会revert
+        vm.expectCall(
+            address(demo),
+            abi.encodeCall(demo.makeCall, (1, address(1)))
+        );
+
+        demo.makeCall(1, address(1));
+
+        // 再一次调用（不带count）完全相同的Cheatcode)，可以正常继续做断言
+        vm.expectCall(
+            address(demo),
+            abi.encodeCall(demo.makeCall, (1, address(1)))
+        );
+
+        demo.makeCall(1, address(1));
     }
 
     function test_ExpectCall_LooselyMatch() external {
@@ -189,6 +247,16 @@ contract CheatcodeAssertion is Test {
             address(demo),
             2 gwei,
             gasExpected,
+            abi.encodeCall(demo.makeCallPayable, (2048))
+        );
+        // 调用（符合预期）
+        demo.makeCallPayable{value : 2 gwei, gas : gasExpected}(2048);
+
+        // 带count的
+        vm.expectCall(
+            address(demo),
+            2 gwei,
+            gasExpected,
             abi.encodeCall(demo.makeCallPayable, (1024)),
             2
         );
@@ -202,6 +270,18 @@ contract CheatcodeAssertion is Test {
     function test_expectCallMinGas_WithMsgValueAndGasAndCount() external {
         // 期待指定目标call的次数,msg.value和传入的最低的gas下限
         uint64 gasMin = 30000;
+        vm.expectCallMinGas(
+            address(demo),
+            2 gwei,
+            gasMin,
+            abi.encodeCall(demo.makeCallPayable, (2048))
+        );
+
+        // 调用，传入的gas为gasMin（符合预期）
+        demo.makeCallPayable{value : 2 gwei, gas : gasMin}(2048);
+
+
+        // 带count
         vm.expectCallMinGas(
             address(demo),
             2 gwei,
