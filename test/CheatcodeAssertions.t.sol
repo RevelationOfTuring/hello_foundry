@@ -182,6 +182,43 @@ contract CheatcodeAssertion is Test {
         demo.makeCallPayable{value : 2 gwei}(1024);
     }
 
+    function test_ExpectCall_WithMsgValueAndGasAndCount() external {
+        // 期待指定目标call的次数,msg.value和传入的gas
+        uint64 gasExpected = 30000;
+        vm.expectCall(
+            address(demo),
+            2 gwei,
+            gasExpected,
+            abi.encodeCall(demo.makeCallPayable, (1024)),
+            2
+        );
+
+        // 2次调用
+        // NOTE:如果传入的gas不一致，则不会计入统计
+        demo.makeCallPayable{value : 2 gwei, gas : gasExpected}(1024);
+        demo.makeCallPayable{value : 2 gwei, gas : gasExpected}(1024);
+    }
+
+    function test_expectCallMinGas_WithMsgValueAndGasAndCount() external {
+        // 期待指定目标call的次数,msg.value和传入的最低的gas下限
+        uint64 gasMin = 30000;
+        vm.expectCallMinGas(
+            address(demo),
+            2 gwei,
+            gasMin,
+            abi.encodeCall(demo.makeCallPayable, (1024)),
+            2
+        );
+
+        // 3次调用，2次符合预期，1次不符合预期
+        // 传入gas正好等于gasMin（符合预期）
+        demo.makeCallPayable{value : 2 gwei, gas : gasMin}(1024);
+        // 传入gas大于gasMin（符合预期）
+        demo.makeCallPayable{value : 2 gwei, gas : gasMin + 1}(1024);
+        // 传入gas下图gasMin（不符合预期）
+        demo.makeCallPayable{value : 2 gwei, gas : gasMin - 1}(1024);
+    }
+
     function test_ExpectRevert() external {
         // check require revert msg
         vm.expectRevert("require revert msg");
