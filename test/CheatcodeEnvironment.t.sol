@@ -12,6 +12,8 @@ contract Demo {
     address public msgSender = address(1024);
     address public txOrigin;
 
+    event Event1(address addr);
+
     function testPrank() external {
         msgSender = msg.sender;
         txOrigin = tx.origin;
@@ -20,9 +22,41 @@ contract Demo {
     function setVarSlot1(uint value) external {
         varSlot1 = value;
     }
+
+    function emitEvent() external {
+        emit Event1(address(this));
+    }
 }
 
 contract CheatcodeEnvironment is Test {
+    event Event2(uint indexed number, address addr, string str);
+
+    function test_RecordLogsAndGetRecordedLogs() external {
+        Demo demo = new Demo();
+        // 告知VM开始记录以下操作抛出的所有events
+        vm.recordLogs();
+        // demo合约抛出event
+        demo.emitEvent();
+        // 本合约抛出event
+        emit Event2(1024, address(this), "hello world");
+
+        // 使用vm.getRecordedLogs()来获得以上区间抛出的所有events（全局所有合约抛出的所有events）
+        Vm.Log[] memory entries = vm.getRecordedLogs();
+        assertEq(entries.length, 2);
+        // 验证Event1
+        assertEq(entries[0].topics[0], keccak256("Event1(address)"));
+        // Event1的第一个参数(不带indexed，在data内)
+        assertEq0(entries[0].data, abi.encode(address(demo)));
+        // 验证Event2
+        assertEq(entries[1].topics[0], keccak256("Event2(uint256,address,string)"));
+        // Event2的第一个参数(indexed)
+        assertEq(entries[1].topics[1], bytes32(uint(1024)));
+        // Event2的第二、三个参数(非indexed)
+        (address p1,string memory p2) = abi.decode(entries[1].data, (address, string));
+        assertEq(p1, address(this));
+        assertEq(p2, "hello world");
+    }
+
     function test_RecordAndAccesses() external {
         // 该cheatcode是用于告知vm开始记录一切对storage的读和写，具体对读写的操作可使用 vm.accesses
         Demo demo = new Demo();
@@ -57,7 +91,6 @@ contract CheatcodeEnvironment is Test {
         assertEq(uint(reads[0]), 1);
         assertEq(uint(writes[0]), 1);
     }
-
 
     function test_ReadCallers() external {
         // 获取当前视图中的CallerMode, msg.sender和tx.origin
