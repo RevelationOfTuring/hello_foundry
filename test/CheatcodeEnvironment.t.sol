@@ -26,9 +26,102 @@ contract Demo {
     function emitEvent() external {
         emit Event1(address(this));
     }
+
+    function getReturn(uint a) external returns (uint){
+        // 写slot
+        varSlot0 = a;
+        // 读slot
+        return varSlot1;
+    }
+
+    function getReturnPayable(uint a) external payable returns (uint){
+        // 写slot
+        varSlot0 = msg.value;
+        // 读slot
+        return a;
+    }
 }
 
 contract CheatcodeEnvironment is Test {
+
+    function test_MockCallAndClearMockedCalls() external {
+        // 模拟一个call向一个地址，并且指定返回的数据(returning data)
+        // 即：本来没有这个call的返回逻辑，但是处于某种需要：在调用某个
+        // 函数时返回一个特定的值。所以才有了mockCall这个功能。
+        Demo demo = new Demo();
+
+        // Demo 本没有函数newFunction(uint256)
+        bytes memory callData = abi.encodeWithSelector(bytes4(keccak256("newFunction(uint256)")), (1024));
+        vm.mockCall(
+            address(demo),
+            callData,
+        // 返回值设定为100
+            abi.encode(100)
+        );
+
+        // 调用一个demo不存在的方法newFunction(uint256)
+        (bool ok, bytes memory returndata) = address(demo).call(callData);
+        assertTrue(ok);
+        // 返回值就是上面我们mockCall设定的返回值
+        assertEq(abi.decode(returndata, (uint)), 100);
+
+        // 如果在callData中只指定selector，那么将激活模糊匹配，涉及到该方法的函数的返回值
+        // 都是mockCall中设定的。
+        // 这次我们改写一个demo已存在的方法function getReturn(uint)
+        // mockCall之前观察返回结果
+        assertEq(demo.getReturn(1), 2);
+        vm.mockCall(
+            address(demo),
+            abi.encodeWithSelector(demo.getReturn.selector),
+        // 指定返回值
+            abi.encode(1024)
+        );
+
+        // 观察模糊匹配的结果：无论传入什么参数，都将得到mockCall中设定的返回值1024
+        assertEq(demo.getReturn(1), 1024);
+        assertEq(demo.getReturn(2), 1024);
+        assertEq(demo.getReturn(3), 1024);
+
+        // 通过vm.clearMockedCalls()来终止掉mockCall功能
+        vm.clearMockedCalls();
+        // 恢复正常逻辑
+        assertEq(demo.getReturn(1), 2);
+    }
+
+    function test_MockCall_WithMsgValue() external {
+        // 也可以通过指定msg.value的值来进行mock call
+        Demo demo = new Demo();
+        vm.mockCall(
+            address(demo),
+            1 gwei,
+            abi.encodeCall(demo.getReturnPayable, (1)),
+        // 指定return
+            abi.encode(1024)
+        );
+
+        // 得到指定好的返回值
+        assertEq(demo.getReturnPayable{value : 1 gwei}(1), 1024);
+
+        // mock call匹配优先级规则：
+        //      msg.value的匹配优先级(仅限于通过selector匹配)高于calldata
+        // 1. msg.value一致，但calldata(非通过selector匹配)不一致，不会触发mock call
+        assertEq(demo.getReturnPayable{value : 1 gwei}(0), 0);
+        // 2. msg.value不一致，但calldata(非通过selector匹配)一致，不会触发mock call
+        assertEq(demo.getReturnPayable{value : 1}(1), 1);
+
+        // 通过selector来进行匹配
+        vm.mockCall(
+            address(demo),
+            1 gwei,
+            abi.encodeWithSelector(demo.getReturnPayable.selector),
+            abi.encode(1024)
+        );
+        // 3. msg.value一致，calldata(通过selector匹配)一致，会触发mock call
+        assertEq(demo.getReturnPayable{value : 1 gwei}(0), 1024);
+        // 4. msg.value不一致，calldata(通过selector匹配)一致，不会触发mock call
+        assertEq(demo.getReturnPayable{value : 1}(0), 0);
+    }
+
     event Event2(uint indexed number, address addr, string str);
 
     function test_RecordLogsAndGetRecordedLogs() external {
@@ -52,7 +145,7 @@ contract CheatcodeEnvironment is Test {
         // Event2的第一个参数(indexed)
         assertEq(entries[1].topics[1], bytes32(uint(1024)));
         // Event2的第二、三个参数(非indexed)
-        (address p1,string memory p2) = abi.decode(entries[1].data, (address, string));
+        (address p1, string memory p2) = abi.decode(entries[1].data, (address, string));
         assertEq(p1, address(this));
         assertEq(p2, "hello world");
     }
@@ -67,7 +160,7 @@ contract CheatcodeEnvironment is Test {
         demo.msgSender();
         // 读slot0
         demo.varSlot0();
-        (bytes32[] memory reads,bytes32[] memory writes) = vm.accesses(address(demo));
+        (bytes32[] memory reads, bytes32[] memory writes) = vm.accesses(address(demo));
 
         // 有两条读slot
         assertEq(reads.length, 2);
