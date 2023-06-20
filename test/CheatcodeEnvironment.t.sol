@@ -43,6 +43,10 @@ contract Demo {
 }
 
 contract CheatcodeEnvironment is Test {
+    function test_MockCallRevert() external {
+        // 模拟一个call向一个地址，当有携带匹配的calldata的call发生时发生指定的revert行为
+
+    }
 
     function test_MockCallAndClearMockedCalls() external {
         // 模拟一个call向一个地址，并且指定返回的数据(returning data)
@@ -86,6 +90,30 @@ contract CheatcodeEnvironment is Test {
         vm.clearMockedCalls();
         // 恢复正常逻辑
         assertEq(demo.getReturn(1), 2);
+    }
+
+    function test_MockCall_ToNoBytecodeAddress() external {
+        // 允许如果mock向一个没有code的地址
+        assertEq(address(0xdead).code, "");
+
+        bytes memory callData = abi.encodeWithSelector(bytes4(keccak256("newFunction()")));
+        vm.mockCall(
+            address(0xdead),
+            callData,
+        // 指定返回值
+            abi.encode(1024)
+        );
+
+        (bool ok, bytes memory returndata) = address(0xdead).call(callData);
+        assertTrue(ok);
+        assertEq(returndata, abi.encode(1024));
+
+        // 停止mockCall
+        vm.clearMockedCalls();
+        (ok, returndata) = address(0xdead).call(callData);
+        // 可以call，但是返回值为空
+        assertTrue(ok);
+        assertEq(returndata, "");
     }
 
     function test_MockCall_WithMsgValue() external {
